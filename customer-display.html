@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Customer Display</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+  /* ── Header ── */
+  .header{background:linear-gradient(135deg,#1a1a2e 0%,#2d1b69 100%);color:#fff;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .salon-name{font-size:26px;font-weight:800;letter-spacing:-0.5px}
+  .header-sub{font-size:13px;opacity:.6;margin-top:2px}
+  .connection-dot{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ── Main area ── */
+  .main{flex:1;overflow:hidden;position:relative}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;transition:opacity .3s,transform .3s}
+  .screen.hidden{opacity:0;pointer-events:none;transform:scale(.97)}
+
+  /* ── IDLE screen ── */
+  #idle{align-items:center;justify-content:center;background:linear-gradient(160deg,#fff8fb 0%,#fce4ec 100%)}
+  .idle-content{text-align:center}
+  .idle-icon{font-size:80px;margin-bottom:24px;animation:float 3s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  .idle-title{font-size:42px;font-weight:800;color:#1a1a2e;margin-bottom:12px}
+  .idle-sub{font-size:20px;color:#888;font-weight:400}
+
+  /* ── REVIEW screen ── */
+  #review{padding:24px 32px;background:#fafafa;overflow-y:auto}
+  .review-grid{display:grid;grid-template-columns:1fr 360px;gap:24px;height:100%;align-items:start}
+  .order-card{background:#fff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,.07);padding:28px;height:100%}
+  .order-title{font-size:18px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:20px}
+  .order-items{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+  .order-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#f9f9f9;border-radius:12px}
+  .order-item-name{font-size:17px;font-weight:600}
+  .order-item-price{font-size:17px;font-weight:700;color:#ff6b9d}
+  .divider{height:1px;background:#eee;margin:16px 0}
+  .summary-line{display:flex;justify-content:space-between;font-size:15px;color:#666;padding:4px 0}
+  .summary-line.total-line{font-size:28px;font-weight:800;color:#1a1a2e;margin-top:12px;padding-top:12px;border-top:2px solid #f0f0f0}
+  .summary-line.total-line span:last-child{color:#ff6b9d}
+
+  /* ── Tip card ── */
+  .tip-card{background:#fff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,.07);padding:28px;display:flex;flex-direction:column;gap:16px}
+  .tip-title{font-size:18px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px}
+  .tip-buttons{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tip-btn{border:3px solid #e0e0e0;background:#fff;border-radius:16px;padding:20px 12px;cursor:pointer;text-align:center;transition:all .2s;-webkit-user-select:none;user-select:none}
+  .tip-btn:active{transform:scale(.96)}
+  .tip-btn.selected{border-color:#ff6b9d;background:#fff0f6}
+  .tip-btn .pct{font-size:28px;font-weight:800;color:#1a1a2e}
+  .tip-btn.selected .pct{color:#ff6b9d}
+  .tip-btn .amt{font-size:15px;color:#888;margin-top:4px}
+  .tip-btn.selected .amt{color:#ff6b9d}
+  .tip-btn.no-tip .pct{font-size:22px;color:#888}
+  .tip-btn.no-tip.selected .pct{color:#ef4444}
+  .tip-btn.no-tip{border-color:#e0e0e0}
+  .tip-btn.no-tip.selected{border-color:#ef4444;background:#fff5f5}
+  .tip-confirm{background:#ff6b9d;color:#fff;border:none;border-radius:14px;padding:18px;font-size:18px;font-weight:700;cursor:pointer;transition:all .2s;width:100%}
+  .tip-confirm:active{transform:scale(.97)}
+  .tip-confirm.confirmed{background:#22c55e}
+  .tip-confirmed-msg{text-align:center;font-size:15px;color:#22c55e;font-weight:600;padding:8px 0}
+
+  /* ── PROCESSING screen ── */
+  #processing{align-items:center;justify-content:center;background:#fff}
+  .spinner{width:80px;height:80px;border:6px solid #f0f0f0;border-top-color:#4d7cfe;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:32px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .processing-title{font-size:32px;font-weight:700;color:#1a1a2e;margin-bottom:10px}
+  .processing-sub{font-size:18px;color:#888}
+
+  /* ── APPROVED screen ── */
+  #approved{align-items:center;justify-content:center;background:linear-gradient(160deg,#f0fdf4 0%,#dcfce7 100%);text-align:center}
+  .approved-check{font-size:100px;margin-bottom:24px;animation:pop .4s cubic-bezier(.175,.885,.32,1.275)}
+  @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+  .approved-title{font-size:48px;font-weight:800;color:#16a34a;margin-bottom:12px}
+  .approved-sub{font-size:20px;color:#555;margin-bottom:24px}
+  .approved-details{background:#fff;border-radius:16px;padding:20px 32px;display:inline-flex;flex-direction:column;gap:8px;min-width:300px}
+  .approved-detail{display:flex;justify-content:space-between;gap:24px;font-size:16px;color:#666}
+  .approved-detail strong{color:#1a1a2e}
+  .points-badge{margin-top:20px;background:#fff8e7;border:2px solid #f59e0b;border-radius:12px;padding:14px 28px;font-size:18px;font-weight:700;color:#d97706;display:inline-block}
+
+  /* ── DECLINED screen ── */
+  #declined{align-items:center;justify-content:center;background:linear-gradient(160deg,#fff5f5 0%,#fee2e2 100%);text-align:center}
+  .declined-icon{font-size:90px;margin-bottom:24px}
+  .declined-title{font-size:42px;font-weight:800;color:#dc2626;margin-bottom:12px}
+  .declined-sub{font-size:18px;color:#666}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="salon-name" id="salonNameHdr">Nail Salon</div>
+    <div class="header-sub">Customer Display</div>
+  </div>
+  <div class="connection-dot" id="connDot" title="Connected"></div>
+</div>
+
+<div class="main">
+
+  <!-- IDLE -->
+  <div class="screen" id="idle">
+    <div class="idle-content">
+      <div class="idle-icon">💅</div>
+      <div class="idle-title" id="idleSalonName">Welcome!</div>
+      <div class="idle-sub">Please see your nail technician to get started</div>
+    </div>
+  </div>
+
+  <!-- REVIEW / TIP SELECTION -->
+  <div class="screen hidden" id="review">
+    <div class="review-grid">
+      <!-- Left: order summary -->
+      <div class="order-card">
+        <div class="order-title">Your Order</div>
+        <div class="order-items" id="orderItems"></div>
+        <div class="divider"></div>
+        <div class="summary-line"><span>Subtotal</span><span id="sumSubtotal">$0.00</span></div>
+        <div class="summary-line" id="sumDiscountRow" style="display:none"><span>Discount</span><span id="sumDiscount" style="color:#ef4444"></span></div>
+        <div class="summary-line" id="sumTaxRow" style="display:none"><span>Tax</span><span id="sumTax"></span></div>
+        <div class="summary-line" id="sumTipRow"><span>Tip</span><span id="sumTip">$0.00</span></div>
+        <div class="summary-line total-line"><span>TOTAL</span><span id="sumTotal">$0.00</span></div>
+      </div>
+      <!-- Right: tip selection -->
+      <div class="tip-card">
+        <div class="tip-title">Choose a Tip</div>
+        <div class="tip-buttons" id="tipButtons"></div>
+        <button class="tip-confirm" id="tipConfirmBtn" onclick="confirmTip()">✓ Confirm Tip</button>
+        <div class="tip-confirmed-msg hidden" id="tipConfirmedMsg">✅ Tip confirmed — thank you!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROCESSING -->
+  <div class="screen hidden" id="processing">
+    <div class="spinner"></div>
+    <div class="processing-title">Processing Payment…</div>
+    <div class="processing-sub">Please wait</div>
+  </div>
+
+  <!-- APPROVED -->
+  <div class="screen hidden" id="approved">
+    <div class="approved-check">✅</div>
+    <div class="approved-title">Payment Approved!</div>
+    <div class="approved-sub" id="approvedSub">Thank you for your visit</div>
+    <div class="approved-details" id="approvedDetails"></div>
+    <div class="points-badge hidden" id="pointsBadge"></div>
+  </div>
+
+  <!-- DECLINED -->
+  <div class="screen hidden" id="declined">
+    <div class="declined-icon">❌</div>
+    <div class="declined-title">Payment Declined</div>
+    <div class="declined-sub" id="declinedMsg">Please try another payment method</div>
+  </div>
+
+</div>
+
+<script>
+const fmt = n => '$' + Number(n||0).toFixed(2);
+let _state = {};
+let _tipSelected = null;
+let _tipConfirmed = false;
+
+function showScreen(id) {
+  ['idle','review','processing','approved','declined'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function renderReview(data) {
+  // Order items
+  const items = data.services || [];
+  document.getElementById('orderItems').innerHTML = items.map(s =>
+    `<div class="order-item">
+      <span class="order-item-name">${s.name}</span>
+      <span class="order-item-price">${fmt(s.price)}</span>
+    </div>`
+  ).join('') || '<div style="color:#aaa;font-size:15px;text-align:center;padding:20px">No services yet</div>';
+
+  // Summary
+  const sub = data.subtotal || 0;
+  const disc = data.discount || 0;
+  const tax = data.tax || 0;
+  const tipAmt = _tipConfirmed && _tipSelected !== null ? _tipSelected : (data.tip || 0);
+  const total = Math.max(0, sub - disc + tax + tipAmt);
+
+  document.getElementById('sumSubtotal').textContent = fmt(sub);
+  document.getElementById('sumDiscountRow').style.display = disc > 0 ? '' : 'none';
+  document.getElementById('sumDiscount').textContent = '-' + fmt(disc);
+  document.getElementById('sumTaxRow').style.display = tax > 0 ? '' : 'none';
+  document.getElementById('sumTax').textContent = fmt(tax);
+  document.getElementById('sumTip').textContent = fmt(tipAmt);
+  document.getElementById('sumTotal').textContent = fmt(total);
+
+  // Tip buttons
+  const tipOptions = data.tipOptions || [15, 18, 20, 25];
+  const btns = tipOptions.map(pct => {
+    const amt = sub * pct / 100;
+    const sel = _tipSelected === amt;
+    return `<div class="tip-btn ${sel ? 'selected' : ''}" onclick="selectTip(${amt}, this)">
+      <div class="pct">${pct}%</div>
+      <div class="amt">${fmt(amt)}</div>
+    </div>`;
+  });
+  btns.push(`<div class="tip-btn no-tip ${_tipSelected === 0 ? 'selected' : ''}" onclick="selectTip(0, this)" style="grid-column:1/-1">
+    <div class="pct">No Tip</div>
+  </div>`);
+  document.getElementById('tipButtons').innerHTML = btns.join('');
+
+  // Hide confirm if already confirmed
+  const confirmBtn = document.getElementById('tipConfirmBtn');
+  const confirmedMsg = document.getElementById('tipConfirmedMsg');
+  if (_tipConfirmed) {
+    confirmBtn.classList.add('hidden');
+    confirmedMsg.classList.remove('hidden');
+  } else {
+    confirmBtn.classList.remove('hidden');
+    confirmedMsg.classList.add('hidden');
+    confirmBtn.disabled = _tipSelected === null;
+    confirmBtn.style.opacity = _tipSelected === null ? '0.4' : '1';
+  }
+}
+
+function selectTip(amt, el) {
+  if (_tipConfirmed) return;
+  _tipSelected = amt;
+  renderReview(_state.data || {});
+}
+
+async function confirmTip() {
+  if (_tipSelected === null) return;
+  _tipConfirmed = true;
+  try {
+    await fetch('/api/display/tip', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tip: _tipSelected})
+    });
+  } catch(e) {}
+  renderReview(_state.data || {});
+}
+
+function renderApproved(data) {
+  const settings = data.settings || {};
+  document.getElementById('approvedSub').textContent =
+    settings.receiptThankyou || 'Thank you for your visit!';
+
+  const details = [];
+  if (data.total) details.push(`<div class="approved-detail"><span>Total Paid</span><strong>${fmt(data.total)}</strong></div>`);
+  if (data.cardType || data.last4) details.push(`<div class="approved-detail"><span>Payment</span><strong>${data.cardType || 'Card'}${data.last4 ? ' ···· ' + data.last4 : ''}</strong></div>`);
+  if (data.authCode) details.push(`<div class="approved-detail"><span>Auth Code</span><strong>${data.authCode}</strong></div>`);
+  document.getElementById('approvedDetails').innerHTML = details.join('');
+
+  const pb = document.getElementById('pointsBadge');
+  if (data.pointsEarned > 0) {
+    pb.textContent = `⭐ You earned ${data.pointsEarned} loyalty points!`;
+    pb.classList.remove('hidden');
+  } else {
+    pb.classList.add('hidden');
+  }
+}
+
+async function poll() {
+  try {
+    const res = await fetch('/api/display?t=' + Date.now());
+    if (!res.ok) throw new Error('Server error');
+    const d = await res.json();
+    _state = d;
+
+    // Update salon name
+    const sName = (d.data && d.data.salonName) || 'Welcome!';
+    document.getElementById('idleSalonName').textContent = sName;
+    document.getElementById('salonNameHdr').textContent = sName;
+
+    const s = d.state || 'idle';
+
+    if (s === 'idle') {
+      _tipSelected = null;
+      _tipConfirmed = false;
+      showScreen('idle');
+    } else if (s === 'review') {
+      // Reset tip state if new ticket
+      if (!_state._lastTicketId || _state._lastTicketId !== d.data.ticketId) {
+        _tipSelected = null;
+        _tipConfirmed = false;
+        _state._lastTicketId = d.data.ticketId;
+      }
+      showScreen('review');
+      renderReview(d.data || {});
+    } else if (s === 'processing') {
+      showScreen('processing');
+    } else if (s === 'approved') {
+      showScreen('approved');
+      renderApproved(d.data || {});
+    } else if (s === 'declined') {
+      showScreen('declined');
+      document.getElementById('declinedMsg').textContent =
+        (d.data && d.data.message) || 'Please try another payment method';
+    }
+
+    document.getElementById('connDot').style.background = '#22c55e';
+    document.getElementById('connDot').style.boxShadow = '0 0 8px #22c55e';
+  } catch(e) {
+    document.getElementById('connDot').style.background = '#f97316';
+    document.getElementById('connDot').style.boxShadow = '0 0 8px #f97316';
+  }
+}
+
+// Poll every 1.5 seconds
+poll();
+setInterval(poll, 1500);
+</script>
+</body>
+</html>

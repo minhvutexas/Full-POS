@@ -1,0 +1,20 @@
+# Runtime data (auto-created on first run — not source code)
+data.json
+giftcards.db
+
+# Build artifacts (regenerate with BUILD-INSTALLER.bat / BUILD-PYTHON-APP.bat)
+build/
+dist/
+installer/
+__pycache__/
+*.pyc
+
+# Local backups made during development
+backup_demo_data_*/
+
+# Empty placeholder
+connector/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book an Appointment</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f8f0f5;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px}
+
+.widget{width:100%;max-width:520px;background:#fff;border-radius:20px;box-shadow:0 8px 40px rgba(255,107,157,.15);overflow:hidden}
+.widget-header{background:linear-gradient(135deg,#1a1a2e,#ff6b9d);padding:28px 28px 24px;text-align:center;color:#fff}
+.widget-header .icon{font-size:36px;margin-bottom:8px}
+.widget-header h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.widget-header p{font-size:14px;opacity:.8}
+
+.steps{display:flex;justify-content:center;gap:0;padding:16px 28px;border-bottom:1px solid #f0f0f0;background:#fafafa}
+.step{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#ccc}
+.step.active{color:#ff6b9d}
+.step.done{color:#22c55e}
+.step-num{width:22px;height:22px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.step.active .step-num{background:#ff6b9d;color:#fff}
+.step.done .step-num{background:#22c55e;color:#fff}
+.step-sep{width:24px;height:2px;background:#eee;margin:0 4px}
+.step.done+.step-sep{background:#22c55e}
+
+.body{padding:24px 28px}
+.section{display:none}
+.section.active{display:block}
+
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:700;color:#555;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none;transition:border .15s;font-family:inherit}
+.form-group input:focus,.form-group select:focus{border-color:#ff6b9d}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Services */
+.svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+.svc-card{border:2px solid #e0e0e0;border-radius:12px;padding:14px 10px;cursor:pointer;text-align:center;transition:all .15s;user-select:none}
+.svc-card:hover{border-color:#ff6b9d;background:#fff0f5}
+.svc-card.selected{border-color:#ff6b9d;background:#ff6b9d;color:#fff}
+.svc-card .sn{font-size:13px;font-weight:600}
+.svc-card .sp{font-size:12px;margin-top:3px;opacity:.8}
+.svc-card .sd{font-size:11px;opacity:.6;margin-top:2px}
+
+.cat-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.cat-chip{padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#888;transition:all .12s}
+.cat-chip.active{background:#ff6b9d;border-color:#ff6b9d;color:#fff}
+
+/* Times */
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.time-btn{padding:10px 6px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .12s;color:#333}
+.time-btn:hover{border-color:#ff6b9d;color:#ff6b9d}
+.time-btn.selected{background:#ff6b9d;border-color:#ff6b9d;color:#fff}
+.time-btn.unavail{background:#f5f5f5;color:#ccc;cursor:not-allowed;border-color:#eee}
+
+/* Buttons */
+.btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;margin-top:8px}
+.btn-pink{background:linear-gradient(135deg,#ff6b9d,#e8558a);color:#fff}
+.btn-pink:hover{opacity:.9}
+.btn-pink:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{background:#fff;border:2px solid #ff6b9d;color:#ff6b9d}
+.btn-outline:hover{background:#fff0f5}
+.btn-row{display:flex;gap:10px;margin-top:12px}
+.btn-row .btn{margin-top:0}
+
+/* Summary */
+.summary-box{background:#f8f0f5;border-radius:12px;padding:16px;margin-bottom:16px}
+.sum-line{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid #f0d0e0}
+.sum-line:last-child{border:none;font-weight:700;font-size:16px;padding-top:10px;color:#ff6b9d}
+
+/* Success */
+.success-icon{font-size:64px;text-align:center;margin:8px 0 12px;animation:pop .4s ease}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+.success-title{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px}
+.success-sub{font-size:14px;color:#888;text-align:center;margin-bottom:20px}
+.confirm-card{background:#f8f0f5;border-radius:12px;padding:16px}
+.conf-line{display:flex;gap:10px;padding:7px 0;font-size:14px;border-bottom:1px solid #f0d0e0}
+.conf-line:last-child{border:none}
+.conf-label{color:#888;min-width:90px;font-size:12px;font-weight:700;text-transform:uppercase;padding-top:1px}
+
+.msg{font-size:13px;color:#ef4444;margin-top:6px;min-height:18px}
+.note{font-size:12px;color:#aaa;margin-top:8px;text-align:center}
+
+/* Config banner (dev only) */
+.config-banner{background:#fff9c4;padding:10px 16px;font-size:12px;color:#856404;border-bottom:1px solid #ffe58f;display:none}
+.config-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="widget">
+  <div class="config-banner" id="configBanner">
+    ⚠️ Booking form is in <strong>offline mode</strong> — POS server not reachable.
+    Bookings will show as a printable confirmation only.
+    <a href="#" onclick="location.reload()" style="color:#856404">Retry</a>
+  </div>
+
+  <div class="widget-header">
+    <div class="icon">💅</div>
+    <h1 id="salonTitle">Book an Appointment</h1>
+    <p id="salonSub">Choose your services and pick a time</p>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="st1"><div class="step-num">1</div> Services</div>
+    <div class="step-sep"></div>
+    <div class="step" id="st2"><div class="step-num">2</div> Date & Time</div>
+    <div class="step-sep"></div>
+    <div class="step" id="st3"><div class="step-num">3</div> Your Info</div>
+    <div class="step-sep"></div>
+    <div class="step" id="st4"><div class="step-num">4</div> Confirm</div>
+  </div>
+
+  <div class="body">
+
+    <!-- STEP 1: SERVICES -->
+    <div class="section active" id="sec1">
+      <div class="cat-bar" id="catBar"></div>
+      <div class="svc-grid" id="svcGrid"></div>
+      <div class="msg" id="msg1"></div>
+      <button class="btn btn-pink" id="next1" onclick="goStep(2)" disabled>Next: Pick Date & Time →</button>
+    </div>
+
+    <!-- STEP 2: DATE & TIME -->
+    <div class="section" id="sec2">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="bookDate" min="" onchange="renderTimes()">
+      </div>
+      <div class="form-group" id="timeGroup" style="display:none">
+        <label>Available Times</label>
+        <div class="time-grid" id="timeGrid"></div>
+      </div>
+      <div class="msg" id="msg2"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-pink" id="next2" onclick="goStep(3)" disabled>Next: Your Info →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: CUSTOMER INFO -->
+    <div class="section" id="sec3">
+      <div class="form-row">
+        <div class="form-group"><label>First & Last Name *</label><input id="bkName" placeholder="Your full name"></div>
+        <div class="form-group"><label>Phone *</label><input id="bkPhone" placeholder="(xxx) xxx-xxxx" type="tel"></div>
+      </div>
+      <div class="form-group"><label>Email (for confirmation)</label><input id="bkEmail" type="email" placeholder="your@email.com"></div>
+      <div class="form-group"><label>Special Requests</label><textarea id="bkNotes" rows="2" placeholder="Allergies, preferred tech, nail length…"></textarea></div>
+      <div class="msg" id="msg3"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
+        <button class="btn btn-pink" onclick="goStep(4)">Review Booking →</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: CONFIRM -->
+    <div class="section" id="sec4">
+      <div class="summary-box" id="summaryBox"></div>
+      <div class="msg" id="msg4"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goStep(3)">← Edit</button>
+        <button class="btn btn-pink" id="submitBtn" onclick="submitBooking()">✓ Confirm Booking</button>
+      </div>
+      <div class="note">We'll confirm your appointment by phone or email.</div>
+    </div>
+
+    <!-- STEP 5: SUCCESS -->
+    <div class="section" id="sec5">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Booking Received!</div>
+      <div class="success-sub" id="successSub">We'll call or text to confirm shortly.</div>
+      <div class="confirm-card" id="confirmCard"></div>
+      <button class="btn btn-outline" style="margin-top:16px" onclick="window.print()">🖨 Print Confirmation</button>
+      <button class="btn btn-pink" style="margin-top:8px" onclick="resetForm()">Book Another</button>
+    </div>
+
+  </div><!-- /body -->
+</div><!-- /widget -->
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+// When embedding on your website, set this to your Cloudflare Tunnel URL.
+// Example: 'https://your-tunnel.trycloudflare.com'
+// Leave as '' to use relative URLs (works when served from the POS server directly).
+const POS_SERVER_URL = '';
+
+const api = u => (POS_SERVER_URL ? POS_SERVER_URL : '') + u;
+
+// ── STATE ─────────────────────────────────────────────────────
+let state = {
+  services: [],       // all services from POS
+  selected: [],       // selected service objects
+  activeCat: 'All',
+  date: '',
+  time: '',
+  name: '', phone: '', email: '', notes: '',
+  serverOnline: false,
+};
+
+// ── TIMES ─────────────────────────────────────────────────────
+const SLOTS = ['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
+               '12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM',
+               '3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM'];
+
+// ── INIT ──────────────────────────────────────────────────────
+(async () => {
+  // Set min date to today
+  const todayStr = new Date().toISOString().split('T')[0];
+  document.getElementById('bookDate').min = todayStr;
+  document.getElementById('bookDate').value = todayStr;
+
+  // Try to load services + salon name from POS server
+  try {
+    const [svcRes, setRes] = await Promise.all([
+      fetch(api('/api/services')),
+      fetch(api('/api/settings')),
+    ]);
+    state.services = await svcRes.json();
+    const settings = await setRes.json();
+    state.serverOnline = true;
+    if (settings.salonName) {
+      document.getElementById('salonTitle').textContent = settings.salonName;
+      document.getElementById('salonSub').textContent = `Book your appointment at ${settings.salonName}`;
+      document.title = `Book — ${settings.salonName}`;
+    }
+  } catch {
+    // Offline mode: use fallback services
+    state.serverOnline = false;
+    document.getElementById('configBanner').classList.add('show');
+    state.services = [
+      {id:1,name:'Manicure',price:20,category:'Manicure',duration:30},
+      {id:2,name:'Gel Manicure',price:35,category:'Manicure',duration:45},
+      {id:3,name:'Pedicure',price:30,category:'Pedicure',duration:45},
+      {id:4,name:'Gel Pedicure',price:45,category:'Pedicure',duration:60},
+      {id:5,name:'Acrylic Full Set',price:50,category:'Acrylic',duration:75},
+      {id:6,name:'Acrylic Fill',price:35,category:'Acrylic',duration:60},
+      {id:7,name:'Dip Powder',price:40,category:'Manicure',duration:50},
+      {id:8,name:'Nail Art',price:15,category:'Add-On',duration:15},
+      {id:9,name:'Mani + Pedi Combo',price:45,category:'Combo',duration:70},
+    ];
+  }
+  renderServices();
+  renderTimes();
+})();
+
+// ── SERVICES ──────────────────────────────────────────────────
+function renderServices() {
+  const cats = ['All', ...new Set(state.services.map(s => s.category))];
+  document.getElementById('catBar').innerHTML = cats.map(c =>
+    `<div class="cat-chip ${state.activeCat===c?'active':''}" onclick="setCat('${c}')">${c}</div>`
+  ).join('');
+
+  const filtered = state.activeCat === 'All' ? state.services : state.services.filter(s => s.category === state.activeCat);
+  document.getElementById('svcGrid').innerHTML = filtered.map(s =>
+    `<div class="svc-card ${state.selected.find(x=>x.id===s.id)?'selected':''}" onclick="toggleSvc(${s.id})">
+      <div class="sn">${s.name}</div>
+      <div class="sp">$${s.price.toFixed(2)}</div>
+      <div class="sd">~${s.duration}min</div>
+    </div>`
+  ).join('');
+
+  document.getElementById('next1').disabled = state.selected.length === 0;
+}
+
+function setCat(c) { state.activeCat = c; renderServices(); }
+
+function toggleSvc(id) {
+  const svc = state.services.find(s => s.id === id);
+  const idx = state.selected.findIndex(s => s.id === id);
+  if (idx > -1) state.selected.splice(idx, 1);
+  else if (svc) state.selected.push(svc);
+  renderServices();
+}
+
+// ── TIMES ─────────────────────────────────────────────────────
+function renderTimes() {
+  const date = document.getElementById('bookDate').value;
+  state.date = date;
+  state.time = '';
+  document.getElementById('next2').disabled = true;
+  if (!date) { document.getElementById('timeGroup').style.display = 'none'; return; }
+
+  document.getElementById('timeGroup').style.display = 'block';
+  const day = new Date(date + 'T00:00:00').getDay();
+  // Sundays (0) closed, Saturdays shorter
+  const available = day === 0 ? [] : day === 6 ? SLOTS.slice(0, 14) : SLOTS;
+
+  document.getElementById('timeGrid').innerHTML = available.length
+    ? available.map(t =>
+        `<div class="time-btn" onclick="selectTime('${t}',this)">${t}</div>`
+      ).join('')
+    : `<div style="color:#aaa;font-size:13px;padding:12px 0">Closed on Sundays</div>`;
+}
+
+function selectTime(t, el) {
+  state.time = t;
+  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('next2').disabled = false;
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function goStep(n) {
+  // Validate
+  if (n === 3) {
+    if (!state.date || !state.time) { document.getElementById('msg2').textContent = 'Please select a date and time.'; return; }
+    document.getElementById('msg2').textContent = '';
+  }
+  if (n === 4) {
+    const name = document.getElementById('bkName').value.trim();
+    const phone = document.getElementById('bkPhone').value.replace(/\D/g,'');
+    if (!name) { document.getElementById('msg3').textContent = 'Please enter your name.'; return; }
+    if (phone.length < 10) { document.getElementById('msg3').textContent = 'Please enter a valid 10-digit phone number.'; return; }
+    state.name = name;
+    state.phone = phone;
+    state.email = document.getElementById('bkEmail').value.trim();
+    state.notes = document.getElementById('bkNotes').value.trim();
+    document.getElementById('msg3').textContent = '';
+    renderSummary();
+  }
+
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec'+n).classList.add('active');
+
+  // Update step indicators
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('st'+i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+}
+
+function renderSummary() {
+  const total = state.selected.reduce((s,x) => s+x.price, 0);
+  document.getElementById('summaryBox').innerHTML =
+    state.selected.map(s => `<div class="sum-line"><span>${s.name}</span><span>$${s.price.toFixed(2)}</span></div>`).join('') +
+    `<div class="sum-line"><span>Est. Total</span><span>$${total.toFixed(2)}</span></div>
+     <div style="margin-top:12px;font-size:13px;color:#555">
+       <b>📅 ${formatDate(state.date)} at ${state.time}</b><br>
+       <span style="color:#888">${state.name} • ${formatPhone(state.phone)}</span>
+       ${state.notes ? `<br><span style="color:#888">📝 ${state.notes}</span>` : ''}
+     </div>`;
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────
+async function submitBooking() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  document.getElementById('msg4').textContent = '';
+
+  const booking = {
+    name: state.name,
+    phone: state.phone,
+    email: state.email,
+    date: state.date,
+    time: state.time,
+    services: state.selected.map(s => s.name).join(', '),
+    estimatedTotal: state.selected.reduce((s,x) => s+x.price, 0),
+    notes: state.notes,
+  };
+
+  let success = false;
+  if (state.serverOnline) {
+    try {
+      const res = await fetch(api('/api/bookings'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(booking),
+      });
+      const result = await res.json();
+      success = result.ok;
+    } catch { success = false; }
+  }
+
+  // Show confirmation either way
+  showSuccess(booking, success);
+}
+
+function showSuccess(booking, sentToServer) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec5').classList.add('active');
+
+  document.getElementById('successSub').textContent = sentToServer
+    ? 'Your booking was sent to the salon. We\'ll confirm by phone or email!'
+    : 'Please call us or show this confirmation when you arrive.';
+
+  document.getElementById('confirmCard').innerHTML = `
+    <div class="conf-line"><div class="conf-label">Name</div><div>${booking.name}</div></div>
+    <div class="conf-line"><div class="conf-label">Phone</div><div>${formatPhone(booking.phone)}</div></div>
+    ${booking.email ? `<div class="conf-line"><div class="conf-label">Email</div><div>${booking.email}</div></div>` : ''}
+    <div class="conf-line"><div class="conf-label">Date</div><div>${formatDate(booking.date)}</div></div>
+    <div class="conf-line"><div class="conf-label">Time</div><div>${booking.time}</div></div>
+    <div class="conf-line"><div class="conf-label">Services</div><div>${booking.services}</div></div>
+    <div class="conf-line"><div class="conf-label">Est. Total</div><div>$${booking.estimatedTotal.toFixed(2)}</div></div>
+    ${booking.notes ? `<div class="conf-line"><div class="conf-label">Notes</div><div>${booking.notes}</div></div>` : ''}
+  `;
+}
+
+function resetForm() {
+  state.selected = []; state.date = ''; state.time = ''; state.name = ''; state.phone = ''; state.email = ''; state.notes = '';
+  document.getElementById('bkName').value = '';
+  document.getElementById('bkPhone').value = '';
+  document.getElementById('bkEmail').value = '';
+  document.getElementById('bkNotes').value = '';
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitBtn').textContent = '✓ Confirm Booking';
+  goStep(1);
+  renderServices();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+}
+function formatPhone(p) {
+  if (!p || p.length < 10) return p;
+  return `(${p.slice(0,3)}) ${p.slice(3,6)}-${p.slice(6,10)}`;
+}
+</script>
+</body>
+</html>

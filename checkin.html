@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Check In — Nail Salon</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:-webkit-fill-available}
+body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
+  min-height:100vh;min-height:-webkit-fill-available;min-height:100dvh; /* 100vh doesn't shrink for iOS's on-screen keyboard/chrome; 100dvh does */
+  display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;padding:20px;overflow-x:hidden;
+  overscroll-behavior:none; /* stop iPad's rubber-band/pull-to-refresh bounce, which reads as "lag" */
+  touch-action:manipulation; /* removes the ~300ms tap delay and blocks double-tap-to-zoom on buttons */
+  transition:padding-bottom .2s ease;
+}
+body.osk-open{padding-bottom:var(--osk-h,320px)} /* room for the fixed on-screen keyboard so it can't cover Continue/Skip */
+
+.screen{width:100%;max-width:560px;display:none;flex-direction:column;align-items:center;animation:fadeIn .3s ease;will-change:transform,opacity}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translate3d(0,16px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+
+.logo{font-size:36px;margin-bottom:6px}
+.salon-name{font-size:28px;font-weight:700;color:#ff6b9d;margin-bottom:4px;text-align:center}
+.tagline{font-size:16px;color:#aaa;margin-bottom:32px;text-align:center}
+
+/* NUMPAD */
+.phone-display{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);border-radius:16px;padding:18px 28px;font-size:36px;font-weight:700;letter-spacing:6px;text-align:center;width:100%;margin-bottom:20px;min-height:72px;color:#fff}
+.phone-display.placeholder{color:rgba(255,255,255,.3);letter-spacing:2px;font-size:20px;font-weight:400;padding-top:24px}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;margin-bottom:16px}
+.key{background:rgba(255,255,255,.1);border:none;border-radius:16px;color:#fff;font-size:26px;font-weight:600;padding:22px 10px;min-height:44px;cursor:pointer;transition:background .12s,transform .12s;user-select:none;touch-action:manipulation}
+.key:active{background:rgba(255,105,157,.5);transform:scale(0.96)}
+.key.del{background:rgba(255,255,255,.06);font-size:20px}
+.key.clear{background:rgba(255,80,80,.2);font-size:16px}
+.key.zero{grid-column:2}
+
+/* BUTTONS */
+.btn{padding:16px 28px;border:none;border-radius:14px;font-size:18px;font-weight:700;cursor:pointer;transition:transform .1s,opacity .1s;width:100%;min-height:44px;margin-bottom:10px;touch-action:manipulation}
+.btn:active{transform:scale(0.97)}
+.btn-pink{background:linear-gradient(135deg,#ff6b9d,#e8558a);color:#fff}
+.btn-pink:active{opacity:.9}
+.btn-ghost{background:rgba(255,255,255,.08);color:#fff;border:2px solid rgba(255,255,255,.15)}
+.btn-ghost:active{background:rgba(255,255,255,.18)}
+.btn-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
+.btn-green:active{opacity:.9}
+.btn-sm{font-size:14px;padding:10px 18px;width:auto}
+
+/* Real mice/trackpads only — guards against iOS's "sticky hover" where a tapped
+   element stays visually highlighted until the next unrelated tap */
+@media (hover:hover) and (pointer:fine){
+  .key:hover{background:rgba(255,105,157,.4)}
+  .btn-pink:hover{opacity:.9}
+  .btn-ghost:hover{background:rgba(255,255,255,.15)}
+  .btn-green:hover{opacity:.9}
+}
+
+/* CUSTOMER FOUND */
+.customer-card{background:rgba(255,255,255,.08);border:2px solid rgba(255,105,157,.4);border-radius:20px;padding:24px;width:100%;text-align:center;margin-bottom:20px}
+.cust-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#ff6b9d,#e8558a);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;margin:0 auto 12px}
+.cust-name{font-size:26px;font-weight:700;margin-bottom:4px}
+.cust-pts{font-size:14px;color:#ffd700;margin-bottom:4px}
+.cust-visits{font-size:13px;color:#aaa}
+
+/* SERVICES — sized to fit one viewport, no scrolling (see fitServicesGrid() in JS) */
+#s-services{max-width:min(1100px,96vw)} /* wider than the default 560px so 4+ columns have real room on landscape iPad */
+#s-services.active{height:calc(100dvh - 40px)} /* 40px = body's 20px top+bottom padding */
+.svc-screen-inner{display:flex;flex-direction:column;width:100%;height:100%;min-height:0}
+
+.section-title{font-size:20px;font-weight:700;margin-bottom:16px;text-align:center;color:#ff6b9d}
+
+.services-grid-wrap{flex:1;min-height:0;width:100%;overflow:hidden}
+.services-grid{display:grid;width:100%;height:100%;gap:10px;align-content:start;--svc-scale:1}
+/* grid-template-columns/rows and --svc-scale are set by fitServicesGrid() in JS, since only JS
+   can know how many cards there are and how much pixel space is actually available */
+
+.svc-card{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.12);border-radius:16px;padding:8px 6px;min-height:44px;cursor:pointer;text-align:center;transition:transform .15s,background .15s,border-color .15s;user-select:none;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+.svc-card:active{transform:scale(.96)}
+.svc-card.selected{background:rgba(255,105,157,.25);border-color:#ff6b9d}
+.svc-card .sn{font-size:calc(15px*var(--svc-scale,1));font-weight:600;margin-bottom:2px}
+.svc-card .sp{font-size:calc(14px*var(--svc-scale,1));color:#ff6b9d;font-weight:700}
+.svc-card .sd{font-size:calc(11px*var(--svc-scale,1));color:#888;margin-top:1px}
+
+.cat-scroll{display:flex;gap:8px;overflow-x:auto;width:100%;margin-bottom:14px;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.cat-scroll::-webkit-scrollbar{display:none}
+.cat-chip{padding:8px 16px;min-height:44px;display:inline-flex;align-items:center;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#ccc;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;touch-action:manipulation}
+.cat-chip.active{background:#ff6b9d;border-color:#ff6b9d;color:#fff}
+
+.reserve-hide{visibility:hidden} /* keeps the element's layout height reserved — see HTML comment */
+
+.selected-svcs{background:rgba(255,255,255,.06);border-radius:12px;padding:14px;width:100%;margin-bottom:16px;font-size:14px;color:#ccc;flex-shrink:0}
+#selSvcList{height:80px;overflow-y:auto} /* FIXED (not max) height — so selecting the 1st vs. 5th service never changes selSvcBox's own size, which is what keeps the already-fit grid stable. Scrolls internally if many services are picked; the main grid never does. */
+.selected-svcs .sv-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.selected-svcs .sv-item:last-child{border:none}
+.total-row{display:flex;justify-content:space-between;font-size:18px;font-weight:700;color:#fff;margin-top:8px}
+
+/* CONFIRMATION */
+.confirm-icon{font-size:80px;margin-bottom:16px;animation:pop .4s ease}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+.confirm-title{font-size:30px;font-weight:700;margin-bottom:8px;text-align:center}
+.confirm-sub{font-size:16px;color:#aaa;margin-bottom:24px;text-align:center}
+.confirm-box{background:rgba(255,255,255,.08);border-radius:16px;padding:20px;width:100%;margin-bottom:24px}
+.confirm-line{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:15px}
+.confirm-line:last-child{border:none;font-weight:700;font-size:18px;color:#ff6b9d}
+
+/* WALKIN FORM */
+.input-field{background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.15);border-radius:12px;padding:14px 18px;min-height:44px;color:#fff;font-size:18px;width:100%;margin-bottom:12px;outline:none;cursor:pointer;caret-color:transparent;touch-action:manipulation}
+.input-field::placeholder{color:rgba(255,255,255,.3)}
+.input-field.osk-active{border-color:#ff6b9d;caret-color:#ff6b9d}
+
+/* ON-SCREEN KEYBOARD */
+#osk{position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;border-top:2px solid #ff6b9d;padding:10px 10px 14px;z-index:9999;display:none;flex-direction:column;gap:6px;box-shadow:0 -8px 32px rgba(0,0,0,.5)}
+#osk.osk-show{display:flex}
+/* 20-column grid — every row spans exactly 20 cols so all edges align */
+.osk-grid{display:grid;grid-template-columns:repeat(20,1fr);gap:5px;width:100%}
+/* 6-column grid for numeric (3 keys × span2) */
+#oskNumeric .osk-grid{grid-template-columns:repeat(6,1fr)}
+.ok{background:rgba(255,255,255,.12);border:none;border-radius:10px;color:#fff;font-size:18px;font-weight:600;padding:13px 0;min-height:44px;cursor:pointer;grid-column:span 2;transition:background .1s;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.ok:active{background:rgba(255,105,157,.5)}
+.ok-sp1{grid-column:span 1} /* half-unit spacer for row 2 centering */
+.ok-3{grid-column:span 3;font-size:14px}  /* shift / del */
+.ok-del{background:rgba(255,80,80,.2)}
+.ok-shift{background:rgba(255,255,255,.08)}
+.ok-shift.shifted{background:rgba(255,105,157,.55)}
+.ok-space{grid-column:span 12;font-size:13px;color:#aaa}
+.ok-done{grid-column:span 8;background:linear-gradient(135deg,#ff6b9d,#e8558a);font-size:15px;font-weight:700}
+.ok-num{background:rgba(255,215,0,.12);font-size:20px}
+.ok-num-wide{grid-column:span 2;background:rgba(255,255,255,.06);font-size:14px;color:#666;cursor:default}
+.ok-num-done{grid-column:span 6;background:linear-gradient(135deg,#ff6b9d,#e8558a);font-size:15px;font-weight:700}
+.osk-label{text-align:center;font-size:11px;color:#888;margin-bottom:2px;letter-spacing:1px;text-transform:uppercase}
+
+.back-btn{position:fixed;top:20px;left:20px;z-index:50;background:rgba(255,105,157,.92);border:2px solid rgba(255,255,255,.4);color:#fff;border-radius:12px;padding:12px 18px;min-height:44px;min-width:44px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:transform .1s,background .1s;touch-action:manipulation}
+.back-btn:active{background:#ff6b9d;transform:scale(0.95)}
+@media (hover:hover) and (pointer:fine){
+  .back-btn:hover{background:rgba(255,105,157,1)}
+}
+
+/* CLOCK */
+.top-bar{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:rgba(0,0,0,.2)}
+.top-bar .tb-salon{font-size:15px;font-weight:700;color:#ff6b9d}
+.top-bar .tb-clock{font-size:14px;color:#aaa}
+
+.divider{display:flex;align-items:center;gap:10px;width:100%;margin:12px 0;color:#555}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
+
+.msg{font-size:14px;color:#ff9999;text-align:center;margin-bottom:12px;min-height:20px}
+
+.details-row{display:flex;gap:20px;flex-wrap:wrap;width:100%}
+.detail-field{flex:1;min-width:220px;display:flex;flex-direction:column}
+.detail-label{display:block;font-size:14px;font-weight:600;color:#eee;margin-bottom:6px;text-align:left;width:100%}
+.opt-tag{font-size:11px;font-weight:500;color:#999}
+.detail-hint{font-size:12px;color:#ffb6c9;margin:-6px 0 6px;text-align:left;width:100%}
+.detail-field .msg{text-align:left;margin-bottom:4px;min-height:16px}
+.saved-tick{display:none;color:#4ade80;font-weight:700;text-align:center;margin-bottom:10px;font-size:15px}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="tb-salon" id="tbSalon">💅 Nail Salon</div>
+  <div class="tb-clock" id="tbClock"></div>
+</div>
+
+<!-- SCREEN 1: WELCOME -->
+<div class="screen active" id="s-welcome" style="margin-top:60px">
+  <div class="logo">💅</div>
+  <div class="salon-name" id="welcomeSalonName">Welcome!</div>
+  <div class="tagline">Please check in below</div>
+
+  <div id="phoneDisplay" class="phone-display placeholder">Enter your phone number</div>
+  <div class="msg" id="phoneMsg"></div>
+
+  <div class="numpad">
+    <button class="key" onclick="pressKey('1')">1</button>
+    <button class="key" onclick="pressKey('2')">2<span style="font-size:10px;display:block;font-weight:400">ABC</span></button>
+    <button class="key" onclick="pressKey('3')">3<span style="font-size:10px;display:block;font-weight:400">DEF</span></button>
+    <button class="key" onclick="pressKey('4')">4<span style="font-size:10px;display:block;font-weight:400">GHI</span></button>
+    <button class="key" onclick="pressKey('5')">5<span style="font-size:10px;display:block;font-weight:400">JKL</span></button>
+    <button class="key" onclick="pressKey('6')">6<span style="font-size:10px;display:block;font-weight:400">MNO</span></button>
+    <button class="key" onclick="pressKey('7')">7<span style="font-size:10px;display:block;font-weight:400">PQRS</span></button>
+    <button class="key" onclick="pressKey('8')">8<span style="font-size:10px;display:block;font-weight:400">TUV</span></button>
+    <button class="key" onclick="pressKey('9')">9<span style="font-size:10px;display:block;font-weight:400">WXYZ</span></button>
+    <button class="key clear" onclick="clearPhone()">CLR</button>
+    <button class="key zero" onclick="pressKey('0')">0</button>
+    <button class="key del" onclick="delKey()">⌫</button>
+  </div>
+
+  <button class="btn btn-pink" onclick="lookupPhone()">Find My Account</button>
+  <div class="divider">or</div>
+  <button class="btn btn-ghost" onclick="goTo('s-walkin')">Walk-In / New Customer</button>
+</div>
+
+<!-- SCREEN 2: CUSTOMER FOUND -->
+<div class="screen" id="s-found">
+  <button class="back-btn" onclick="goTo('s-welcome')">← Back</button>
+  <div style="height:60px"></div>
+  <div class="customer-card" id="custCard">
+    <div class="cust-avatar" id="custAvatar">?</div>
+    <div class="cust-name" id="custName">—</div>
+    <div class="cust-pts" id="custPts">⭐ 0 points</div>
+    <div class="cust-visits" id="custVisits">0 visits</div>
+  </div>
+  <button class="btn btn-pink" onclick="goTo('s-services')">Check In →</button>
+  <button class="btn btn-ghost" onclick="goTo('s-welcome')">Not me</button>
+</div>
+
+<!-- SCREEN 3: WALK-IN -->
+<div class="screen" id="s-walkin">
+  <button class="back-btn" onclick="goTo('s-welcome')">← Back</button>
+  <div style="height:60px"></div>
+  <div class="salon-name" style="margin-bottom:8px">Your Info</div>
+  <div class="tagline" style="margin-bottom:24px">Enter your name to get started</div>
+  <input class="input-field" id="wi_name" placeholder="Your name" autocomplete="off">
+  <input class="input-field" id="wi_phone" placeholder="Phone (optional — to save your points)" type="tel" autocomplete="off">
+  <div class="msg" id="wiMsg"></div>
+  <button class="btn btn-pink" onclick="submitWalkIn()">Continue →</button>
+</div>
+
+<!-- SCREEN 4: SELECT SERVICES -->
+<div class="screen" id="s-services">
+  <button class="back-btn" onclick="goBack()">← Back</button>
+  <div class="svc-screen-inner">
+    <div style="height:60px;flex-shrink:0"></div>
+    <div class="section-title" style="flex-shrink:0">What would you like today?</div>
+    <div class="cat-scroll" id="catScroll" style="flex-shrink:0"></div>
+
+    <div class="services-grid-wrap" id="servicesGridWrap">
+      <div class="services-grid" id="servicesGrid"></div>
+    </div>
+
+    <!-- Always in the layout (visibility, not display) so selecting the first service never
+         changes the footer height and forces a grid re-fit — see fitServicesGrid() comments. -->
+    <div id="selSvcBox" class="selected-svcs reserve-hide">
+      <div id="selSvcList"></div>
+      <div class="total-row"><span>Estimated Total</span><span id="selTotal">$0</span></div>
+    </div>
+
+    <button class="btn btn-green reserve-hide" onclick="goTo('s-details')" id="continueBtn">Continue →</button>
+    <button class="btn btn-ghost" onclick="skipServices()" style="flex-shrink:0">Skip — Decide Later</button>
+  </div>
+</div>
+
+<!-- SCREEN 4.5: EMAIL & BIRTHDAY (optional) -->
+<div class="screen" id="s-details">
+  <button class="back-btn" onclick="goTo('s-services')">← Back</button>
+  <div style="height:60px"></div>
+  <div class="section-title">Want digital receipts &amp; birthday perks?</div>
+  <div class="tagline" style="margin-bottom:24px">Totally optional — skip if you'd rather not</div>
+
+  <div class="details-row">
+    <div class="detail-field">
+      <label class="detail-label" for="det_email">Email <span class="opt-tag">(Optional)</span></label>
+      <input class="input-field" id="det_email" type="email" placeholder="you@email.com" autocomplete="off" aria-label="Email address (optional)" style="margin-bottom:4px">
+      <div class="detail-hint">📧 For digital receipts &amp; exclusive offers</div>
+      <div class="msg" id="detEmailMsg"></div>
+    </div>
+    <div class="detail-field">
+      <label class="detail-label" for="det_dob">Date of Birth <span class="opt-tag">(Optional)</span></label>
+      <input class="input-field" id="det_dob" type="date" aria-label="Date of birth (optional)" style="margin-bottom:4px;cursor:pointer;caret-color:#fff">
+      <div class="detail-hint">🎂 Get a surprise gift on your birthday!</div>
+      <div class="msg" id="detDobMsg"></div>
+    </div>
+  </div>
+
+  <div class="saved-tick" id="detSavedTick">✓ Saved to your profile</div>
+
+  <button class="btn btn-pink" onclick="submitDetails()">Continue →</button>
+  <button class="btn btn-ghost" onclick="skipDetails()">Skip for now</button>
+</div>
+
+<!-- SCREEN 5: CONFIRM -->
+<div class="screen" id="s-confirm">
+  <button class="back-btn" onclick="goTo('s-details')">← Back</button>
+  <div style="height:60px"></div>
+  <div class="section-title">Confirm Check-In</div>
+
+  <div class="confirm-box" id="confirmBox"></div>
+
+  <button class="btn btn-green" onclick="submitCheckin()">✓ Check In Now</button>
+  <button class="btn btn-ghost" onclick="goTo('s-services')">Edit Services</button>
+</div>
+
+<!-- SCREEN 6: SUCCESS -->
+<div class="screen" id="s-success">
+  <div class="confirm-icon">🎉</div>
+  <div class="confirm-title">You're Checked In!</div>
+  <div class="confirm-sub" id="successMsg">Please have a seat. We'll be right with you!</div>
+  <div class="confirm-box" id="successBox"></div>
+  <div style="margin-top:12px;font-size:14px;color:#888;text-align:center">This screen will reset in <span id="countdown">10</span>s</div>
+</div>
+
+<!-- ON-SCREEN KEYBOARD -->
+<div id="osk">
+  <div class="osk-label" id="oskLabel">Name</div>
+
+  <!-- QWERTY layout — 20-column grid, each row = exactly 20 cols -->
+  <div id="oskQwerty">
+    <!-- Row 1: q w e r t y u i o p  (10 × span2 = 20) -->
+    <div class="osk-grid">
+      <button class="ok" onclick="oskKey('q')" data-base="q">q</button>
+      <button class="ok" onclick="oskKey('w')" data-base="w">w</button>
+      <button class="ok" onclick="oskKey('e')" data-base="e">e</button>
+      <button class="ok" onclick="oskKey('r')" data-base="r">r</button>
+      <button class="ok" onclick="oskKey('t')" data-base="t">t</button>
+      <button class="ok" onclick="oskKey('y')" data-base="y">y</button>
+      <button class="ok" onclick="oskKey('u')" data-base="u">u</button>
+      <button class="ok" onclick="oskKey('i')" data-base="i">i</button>
+      <button class="ok" onclick="oskKey('o')" data-base="o">o</button>
+      <button class="ok" onclick="oskKey('p')" data-base="p">p</button>
+    </div>
+    <!-- Row 2: (spacer) a s d f g h j k l (spacer)  (1 + 9×2 + 1 = 20) -->
+    <div class="osk-grid">
+      <span class="ok-sp1"></span>
+      <button class="ok" onclick="oskKey('a')" data-base="a">a</button>
+      <button class="ok" onclick="oskKey('s')" data-base="s">s</button>
+      <button class="ok" onclick="oskKey('d')" data-base="d">d</button>
+      <button class="ok" onclick="oskKey('f')" data-base="f">f</button>
+      <button class="ok" onclick="oskKey('g')" data-base="g">g</button>
+      <button class="ok" onclick="oskKey('h')" data-base="h">h</button>
+      <button class="ok" onclick="oskKey('j')" data-base="j">j</button>
+      <button class="ok" onclick="oskKey('k')" data-base="k">k</button>
+      <button class="ok" onclick="oskKey('l')" data-base="l">l</button>
+      <span class="ok-sp1"></span>
+    </div>
+    <!-- Row 3: Shift(3) z x c v b n m Del(3)  (3 + 7×2 + 3 = 20) -->
+    <div class="osk-grid">
+      <button class="ok ok-3 ok-shift" id="oskShiftBtn" onclick="oskToggleShift()">⇧</button>
+      <button class="ok" onclick="oskKey('z')" data-base="z">z</button>
+      <button class="ok" onclick="oskKey('x')" data-base="x">x</button>
+      <button class="ok" onclick="oskKey('c')" data-base="c">c</button>
+      <button class="ok" onclick="oskKey('v')" data-base="v">v</button>
+      <button class="ok" onclick="oskKey('b')" data-base="b">b</button>
+      <button class="ok" onclick="oskKey('n')" data-base="n">n</button>
+      <button class="ok" onclick="oskKey('m')" data-base="m">m</button>
+      <button class="ok ok-3 ok-del" onclick="oskDel()">⌫</button>
+    </div>
+    <!-- Row 4: space(12) done(8) = 20 -->
+    <div class="osk-grid">
+      <button class="ok ok-space" onclick="oskKey(' ')">space</button>
+      <button class="ok ok-done" onclick="oskDone()">Done ✓</button>
+    </div>
+  </div>
+
+  <!-- Numeric layout (phone) — 6-column grid, 3 keys per row × span2 = 6 -->
+  <div id="oskNumeric" style="display:none">
+    <div class="osk-grid">
+      <button class="ok ok-num" onclick="oskKey('1')">1</button>
+      <button class="ok ok-num" onclick="oskKey('2')">2</button>
+      <button class="ok ok-num" onclick="oskKey('3')">3</button>
+      <button class="ok ok-num" onclick="oskKey('4')">4</button>
+      <button class="ok ok-num" onclick="oskKey('5')">5</button>
+      <button class="ok ok-num" onclick="oskKey('6')">6</button>
+      <button class="ok ok-num" onclick="oskKey('7')">7</button>
+      <button class="ok ok-num" onclick="oskKey('8')">8</button>
+      <button class="ok ok-num" onclick="oskKey('9')">9</button>
+      <button class="ok ok-num ok-num-wide" style="pointer-events:none"></button>
+      <button class="ok ok-num" onclick="oskKey('0')">0</button>
+      <button class="ok ok-num ok-del" onclick="oskDel()">⌫</button>
+      <button class="ok ok-num-done" onclick="oskDone()">Done ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== SHARED DATA =====================
+const _isServer=location.protocol!=='file:';
+const DB={
+  get(k){try{return JSON.parse(localStorage.getItem('npos_'+k))||null}catch{return null}},
+  set(k,v){
+    localStorage.setItem('npos_'+k,JSON.stringify(v));
+    if(_isServer) DB._scheduleSave();
+  },
+  _saveTimer:null,
+  _scheduleSave(){clearTimeout(DB._saveTimer);DB._saveTimer=setTimeout(DB._save,300);},
+  _save(){
+    const data={};
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('npos_'))data[k]=localStorage.getItem(k);}
+    fetch('/api/db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).catch(()=>{});
+  },
+  async load(){
+    if(!_isServer) return;
+    try{
+      const res=await fetch('/api/db');
+      const data=await res.json();
+      for(const [k,v] of Object.entries(data)){if(k.startsWith('npos_'))localStorage.setItem(k,v);}
+    }catch{}
+  }
+};
+function genId(){return Date.now()+Math.floor(Math.random()*1000)}
+function initials(n){return n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+function fmt(n){return '$'+Number(n).toFixed(2)}
+function today(){return new Date().toISOString().split('T')[0]}
+
+// State
+let state={phone:'',customerId:null,customerName:'',isNew:false,selectedServices:[],activeCat:'All',fromScreen:'s-welcome'};
+
+// Clock
+function updateClock(){
+  const now=new Date();
+  document.getElementById('tbClock').textContent=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(updateClock,1000);updateClock();
+
+// Load from server then init
+(async()=>{
+  await DB.load();
+  const settings=DB.get('settings')||{};
+  const sn=settings.salonName||'Nail Salon';
+  document.getElementById('tbSalon').textContent='💅 '+sn;
+  document.getElementById('welcomeSalonName').textContent='Welcome to '+sn+'!';
+})();
+
+// ===================== NUMPAD =====================
+let phoneDigits='';
+function pressKey(d){
+  if(phoneDigits.length>=10)return;
+  phoneDigits+=d;
+  updatePhoneDisplay();
+}
+function delKey(){phoneDigits=phoneDigits.slice(0,-1);updatePhoneDisplay();}
+function clearPhone(){phoneDigits='';updatePhoneDisplay();}
+function updatePhoneDisplay(){
+  const el=document.getElementById('phoneDisplay');
+  document.getElementById('phoneMsg').textContent='';
+  if(!phoneDigits){el.textContent='Enter your phone number';el.classList.add('placeholder');return;}
+  el.classList.remove('placeholder');
+  // Format as (xxx) xxx-xxxx
+  let d=phoneDigits;
+  let fmt='';
+  if(d.length>0)fmt='('+d.slice(0,3);
+  if(d.length>=4)fmt+=') '+d.slice(3,6);
+  if(d.length>=7)fmt+='-'+d.slice(6,10);
+  el.textContent=fmt||d;
+}
+
+function lookupPhone(){
+  if(phoneDigits.length<10){document.getElementById('phoneMsg').textContent='Please enter your 10-digit phone number';return;}
+  const customers=DB.get('customers')||[];
+  const found=customers.find(c=>c.phone===phoneDigits);
+  if(found){
+    state.customerId=found.id;
+    state.customerName=found.name;
+    state.isNew=false;
+    document.getElementById('custAvatar').textContent=initials(found.name);
+    document.getElementById('custName').textContent=found.name;
+    document.getElementById('custPts').textContent='⭐ '+found.points+' reward points';
+    document.getElementById('custVisits').textContent=found.visits+' visit'+(found.visits!==1?'s':'');
+    goTo('s-found');
+  } else {
+    document.getElementById('phoneMsg').textContent='Phone not found. Walk in below or try again.';
+  }
+}
+
+// ===================== WALK-IN =====================
+function submitWalkIn(){
+  const name=document.getElementById('wi_name').value.trim();
+  if(!name){document.getElementById('wiMsg').textContent='Please enter your name';return;}
+  const phone=document.getElementById('wi_phone').value.replace(/\D/g,'');
+  state.customerName=name;
+  state.isNew=true;
+  // Always create or find customer in DB
+  const customers=DB.get('customers')||[];
+  if(phone.length===10){
+    let existing=customers.find(c=>c.phone===phone);
+    if(!existing){
+      existing={id:genId(),name,phone,email:'',points:0,visits:0,totalSpent:0,birthday:'',lastVisit:today(),notes:'',source:'kiosk'};
+      customers.push(existing);DB.set('customers',customers);
+    } else {
+      // Update name if blank
+      if(!existing.name||existing.name==='Walk-in'){existing.name=name;DB.set('customers',customers);}
+    }
+    state.customerId=existing.id;
+    state.customerName=existing.name;
+  } else {
+    // No phone — still save as anonymous customer so they appear in DB
+    const anon={id:genId(),name,phone:'',email:'',points:0,visits:0,totalSpent:0,birthday:'',lastVisit:today(),notes:'',source:'kiosk'};
+    customers.push(anon);DB.set('customers',customers);
+    state.customerId=anon.id;
+  }
+  goTo('s-services');
+}
+
+// ===================== SERVICES =====================
+function renderServices(){
+  const services=DB.get('services')||[];
+  const cats=['All',...new Set(services.map(s=>s.category))];
+
+  // Category chips
+  document.getElementById('catScroll').innerHTML=cats.map(c=>`
+    <div class="cat-chip ${state.activeCat===c?'active':''}" onclick="setCat('${c}')">${c}</div>`).join('');
+
+  // Service grid
+  const filtered=state.activeCat==='All'?services:services.filter(s=>s.category===state.activeCat);
+  document.getElementById('servicesGrid').innerHTML=filtered.map(s=>`
+    <div class="svc-card ${state.selectedServices.find(x=>x.id===s.id)?'selected':''}" onclick="toggleSvc(${s.id})">
+      <div class="sn">${s.name}</div>
+      <div class="sp">${fmt(s.price)}</div>
+      <div class="sd">~${s.duration} min</div>
+    </div>`).join('');
+
+  // Selected list — toggled via `visibility` (see .reserve-hide), not `display`, so showing/hiding
+  // this footer never changes the layout height fitServicesGrid() already measured and fit to.
+  const total=state.selectedServices.reduce((s,x)=>s+x.price,0);
+  const selBox=document.getElementById('selSvcBox');
+  const continueBtn=document.getElementById('continueBtn');
+  if(state.selectedServices.length){
+    selBox.classList.remove('reserve-hide');
+    continueBtn.classList.remove('reserve-hide');
+    document.getElementById('selSvcList').innerHTML=state.selectedServices.map(s=>`
+      <div class="sv-item"><span>${s.name}</span><span>${fmt(s.price)}</span></div>`).join('');
+    document.getElementById('selTotal').textContent=fmt(total);
+  } else {
+    selBox.classList.add('reserve-hide');
+    continueBtn.classList.add('reserve-hide');
+  }
+}
+
+// Only called when the *number* of cards on screen actually changes (category switch) — never
+// on every tap/selection — so the expensive geometry pass in fitServicesGrid() stays rare.
+function setCat(c){state.activeCat=c;renderServices();fitServicesGrid();}
+
+function toggleSvc(id){
+  const services=DB.get('services')||[];
+  const svc=services.find(s=>s.id===id);
+  const idx=state.selectedServices.findIndex(s=>s.id===id);
+  if(idx>-1)state.selectedServices.splice(idx,1);
+  else if(svc)state.selectedServices.push(svc);
+  renderServices();
+}
+
+function skipServices(){state.selectedServices=[];goTo('s-details');}
+
+// ===================== FIT-TO-SCREEN GRID (no scrolling on Service Selection) =====================
+// Pure CSS (grid-template-columns:repeat(auto-fit,minmax(...))) can make columns responsive, but it
+// has no way to know the *row* count needed to fit a given pixel height, or to shrink font-size —
+// that requires actually measuring the container, which only JS can do. This runs it.
+function fitServicesGrid(){
+  const wrap=document.getElementById('servicesGridWrap');
+  const grid=document.getElementById('servicesGrid');
+  if(!wrap||!grid)return;
+  const count=grid.children.length;
+  if(!count)return;
+
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  if(w<=0||h<=0)return; // screen not visible/laid out yet
+
+  const GAP=10, MIN_CARD_W=130, MIN_ROW_H=52; // MIN_ROW_H stays comfortably above the 44px HIG floor
+
+  // Column count from *actual available width* — this is what makes it correct on every iPad
+  // size/orientation without hand-written breakpoints for each model.
+  let cols=Math.max(2,Math.min(6,Math.floor((w+GAP)/(MIN_CARD_W+GAP))));
+  let rows=Math.ceil(count/cols);
+
+  // If that many rows would push cards below the touch-target minimum, add a column (fewer rows)
+  // instead of letting them shrink too far — as long as there's still enough width per column.
+  while(rows>1&&cols<6&&(h-(rows-1)*GAP)/rows<MIN_ROW_H&&Math.floor((w-cols*GAP)/(cols+1))>=80){
+    cols++;
+    rows=Math.ceil(count/cols);
+  }
+
+  grid.style.gap=GAP+'px';
+  grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  grid.style.gridTemplateRows=`repeat(${rows},minmax(${MIN_ROW_H}px,1fr))`;
+
+  // Long lists (e.g. 15+ services): shrink card text a little rather than ever hiding items.
+  const rowH=(h-(rows-1)*GAP)/rows;
+  grid.style.setProperty('--svc-scale',rowH<66?0.78:rowH<86?0.9:1);
+
+  // Honesty fallback: if even minimum-height rows genuinely can't all fit (e.g. 30+ services on a
+  // small screen), don't render illegibly squeezed cards — let the grid itself scroll instead.
+  // "No scrolling" and "always tappable at ≥44px" can both be guaranteed up to a point; past that,
+  // a scrollable grid beats an unreadable one.
+  const neededH=rows*MIN_ROW_H+(rows-1)*GAP;
+  wrap.style.overflowY=neededH>h+1?'auto':'hidden';
+}
+
+// Debounced, and gated to only recompute while the Services screen is actually showing — runs on
+// load (via goTo) and on resize/orientation change, never per-tap. This is what satisfies
+// "resizing logic runs only once on load or when the window resizes, not on every touch."
+let _svcFitTimer=null;
+function scheduleFitServicesGrid(){
+  clearTimeout(_svcFitTimer);
+  _svcFitTimer=setTimeout(()=>{
+    if(document.getElementById('s-services').classList.contains('active'))fitServicesGrid();
+  },150);
+}
+window.addEventListener('resize',scheduleFitServicesGrid);
+window.addEventListener('orientationchange',scheduleFitServicesGrid);
+
+// ===================== EMAIL & DOB (optional) =====================
+function _validateEmailField(fieldId,msgId){
+  const el=document.getElementById(fieldId);
+  const msg=document.getElementById(msgId);
+  const val=el.value.trim();
+  if(!val){msg.textContent='';return true;}
+  const ok=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  msg.textContent=ok?'':'Please enter a valid email address';
+  return ok;
+}
+function _validateDobField(fieldId,msgId){
+  const el=document.getElementById(fieldId);
+  const msg=document.getElementById(msgId);
+  if(!el.value){msg.textContent='';return true;}
+  const ok=el.value<=today();
+  msg.textContent=ok?'':'Date of birth must be in the past';
+  return ok;
+}
+
+function renderDetailsScreen(){
+  const dobEl=document.getElementById('det_dob');
+  if(dobEl)dobEl.max=today();
+  document.getElementById('detEmailMsg').textContent='';
+  document.getElementById('detDobMsg').textContent='';
+  document.getElementById('detSavedTick').style.display='none';
+  const customers=DB.get('customers')||[];
+  const cust=customers.find(c=>c.id===state.customerId);
+  document.getElementById('det_email').value=(cust&&cust.email)||'';
+  document.getElementById('det_dob').value=(cust&&cust.birthday)||'';
+}
+
+function submitDetails(){
+  const emailOk=_validateEmailField('det_email','detEmailMsg');
+  const dobOk=_validateDobField('det_dob','detDobMsg');
+  if(!emailOk||!dobOk)return;
+  const email=document.getElementById('det_email').value.trim();
+  const dob=document.getElementById('det_dob').value;
+  if(email||dob){
+    const customers=DB.get('customers')||[];
+    const cust=customers.find(c=>c.id===state.customerId);
+    if(cust){
+      if(email)cust.email=email;
+      if(dob)cust.birthday=dob;
+      DB.set('customers',customers);
+    }
+    document.getElementById('detSavedTick').style.display='block';
+    setTimeout(()=>goTo('s-confirm'),600);
+  } else {
+    goTo('s-confirm');
+  }
+}
+
+function skipDetails(){goTo('s-confirm');}
+
+// ===================== CONFIRM =====================
+function renderConfirm(){
+  const total=state.selectedServices.reduce((s,x)=>s+x.price,0);
+  const svcLines=state.selectedServices.length
+    ? state.selectedServices.map(s=>`<div class="confirm-line"><span>${s.name}</span><span>${fmt(s.price)}</span></div>`).join('')
+    : '<div class="confirm-line" style="color:#888"><span>Services TBD</span><span>—</span></div>';
+
+  document.getElementById('confirmBox').innerHTML=`
+    <div class="confirm-line"><span style="color:#aaa">Name</span><span>${state.customerName}</span></div>
+    ${svcLines}
+    ${state.selectedServices.length?`<div class="confirm-line"><span>Est. Total</span><span>${fmt(total)}</span></div>`:''}`;
+}
+
+// ===================== SUBMIT =====================
+function submitCheckin(){
+  const svcNames=state.selectedServices.map(s=>s.name).join(', ')||'Services TBD';
+  const now=new Date();
+  const timeStr=now.toTimeString().slice(0,5); // HH:MM
+
+  // 1. Ensure customer exists in DB (phone-lookup path already has customerId set)
+  if(!state.customerId){
+    const customers=DB.get('customers')||[];
+    const anon={id:genId(),name:state.customerName,phone:'',email:'',points:0,visits:0,totalSpent:0,birthday:'',lastVisit:today(),notes:'',source:'kiosk'};
+    customers.push(anon);DB.set('customers',customers);
+    state.customerId=anon.id;
+  }
+
+  // 2. Add to check-in board
+  const checkins=DB.get('checkins')||[];
+  checkins.push({
+    id:genId(),
+    customerId:state.customerId,
+    walkInName:state.customerName,
+    services:svcNames,
+    status:'waiting',
+    checkInTime:Date.now(),
+    date:today()
+  });
+  DB.set('checkins',checkins);
+
+  // Show success
+  const total=state.selectedServices.reduce((s,x)=>s+x.price,0);
+  document.getElementById('successMsg').textContent=`Hi ${state.customerName.split(' ')[0]}! Please have a seat. We'll be right with you!`;
+  document.getElementById('successBox').innerHTML=`
+    <div class="confirm-line"><span>Services</span><span style="font-size:13px">${svcNames}</span></div>
+    ${total?`<div class="confirm-line"><span>Est. Total</span><span>${fmt(total)}</span></div>`:''}
+    <div class="confirm-line" style="margin-top:8px"><span>Status</span><span style="color:#22c55e;font-weight:700">⏳ Waiting</span></div>`;
+
+  goTo('s-success');
+  startCountdown();
+}
+
+let countdownTimer=null;
+function startCountdown(){
+  let n=12;
+  document.getElementById('countdown').textContent=n;
+  if(countdownTimer)clearInterval(countdownTimer);
+  countdownTimer=setInterval(()=>{
+    n--;
+    document.getElementById('countdown').textContent=n;
+    if(n<=0){clearInterval(countdownTimer);resetAll();}
+  },1000);
+}
+
+function resetAll(){
+  phoneDigits='';
+  updatePhoneDisplay();
+  state={phone:'',customerId:null,customerName:'',isNew:false,selectedServices:[],activeCat:'All'};
+  document.getElementById('wi_name').value='';
+  document.getElementById('wi_phone').value='';
+  document.getElementById('phoneMsg').textContent='';
+  document.getElementById('wiMsg').textContent='';
+  document.getElementById('det_email').value='';
+  document.getElementById('det_dob').value='';
+  document.getElementById('detEmailMsg').textContent='';
+  document.getElementById('detDobMsg').textContent='';
+  document.getElementById('detSavedTick').style.display='none';
+  goTo('s-welcome');
+}
+
+// ===================== NAV =====================
+function goTo(screenId){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  if(screenId==='s-services'){renderServices();fitServicesGrid();}
+  if(screenId==='s-details')renderDetailsScreen();
+  if(screenId==='s-confirm')renderConfirm();
+  window.scrollTo(0,0);
+}
+
+function goBack(){
+  if(state.fromScreen)goTo(state.fromScreen);
+  else goTo('s-welcome');
+}
+
+// ===================== ON-SCREEN KEYBOARD =====================
+let _oskTarget=null;
+let _oskShift=false;
+let _oskNumMode=false;
+
+function oskOpen(el,numMode,label){
+  _oskTarget=el;
+  _oskNumMode=numMode||false;
+  _oskShift=false;
+  document.getElementById('oskLabel').textContent=label||'';
+  document.getElementById('oskQwerty').style.display=_oskNumMode?'none':'block';
+  document.getElementById('oskNumeric').style.display=_oskNumMode?'block':'none';
+  oskApplyShift();
+  const oskEl=document.getElementById('osk');
+  oskEl.classList.add('osk-show');
+  document.querySelectorAll('.input-field').forEach(i=>i.classList.remove('osk-active'));
+  el.classList.add('osk-active');
+  // Reserve space at the bottom of the page equal to the keyboard's real rendered height, so
+  // "Continue"/"Skip" and any field below the tapped one can never end up hidden underneath it.
+  requestAnimationFrame(()=>{
+    document.body.style.setProperty('--osk-h',oskEl.offsetHeight+'px');
+    document.body.classList.add('osk-open');
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  _oskResetInactivityTimer();
+}
+
+function oskDone(){
+  clearTimeout(_oskInactivityTimer);
+  document.getElementById('osk').classList.remove('osk-show');
+  document.body.classList.remove('osk-open');
+  if(_oskTarget)_oskTarget.classList.remove('osk-active');
+  _oskTarget=null;
+}
+
+// Auto-dismiss after 1.5s of no typing — reset on every keystroke, delete, or (re)open.
+let _oskInactivityTimer=null;
+function _oskResetInactivityTimer(){
+  clearTimeout(_oskInactivityTimer);
+  _oskInactivityTimer=setTimeout(()=>{ if(_oskTarget)oskDone(); },1500);
+}
+
+function oskKey(ch){
+  if(!_oskTarget)return;
+  if(ch==='')return; // disabled key (dash placeholder in numeric)
+  const c=_oskShift&&ch.trim()?ch.toUpperCase():ch;
+  _oskTarget.value+=c;
+  if(_oskShift&&ch.trim()){_oskShift=false;oskApplyShift();}
+  _oskResetInactivityTimer();
+}
+
+function oskDel(){
+  if(!_oskTarget)return;
+  _oskTarget.value=_oskTarget.value.slice(0,-1);
+  _oskResetInactivityTimer();
+}
+
+function oskToggleShift(){
+  _oskShift=!_oskShift;
+  oskApplyShift();
+}
+
+function oskApplyShift(){
+  const btn=document.getElementById('oskShiftBtn');
+  if(!btn)return;
+  btn.style.background=_oskShift?'rgba(255,105,157,.6)':'rgba(255,255,255,.12)';
+  // Update letter keys
+  document.querySelectorAll('#oskQwerty .ok:not(.ok-wide):not(.ok-del):not(.ok-done):not(.ok-space)').forEach(k=>{
+    const base=k.getAttribute('data-base')||k.textContent;
+    k.setAttribute('data-base',base);
+    k.textContent=_oskShift?base.toUpperCase():base.toLowerCase();
+  });
+}
+
+// Wire up walk-in inputs to OSK
+document.addEventListener('DOMContentLoaded',()=>{
+  const nameEl=document.getElementById('wi_name');
+  const phoneEl=document.getElementById('wi_phone');
+  if(nameEl){
+    nameEl.readOnly=true;
+    nameEl.addEventListener('click',()=>oskOpen(nameEl,false,'Name'));
+  }
+  if(phoneEl){
+    phoneEl.readOnly=true;
+    phoneEl.addEventListener('click',()=>oskOpen(phoneEl,true,'Phone Number'));
+  }
+  const emailEl=document.getElementById('det_email');
+  if(emailEl){
+    emailEl.readOnly=true;
+    emailEl.addEventListener('click',()=>oskOpen(emailEl,false,'Email'));
+  }
+  // det_dob is a native <input type="date"> — the OS/browser's own date picker opens on tap,
+  // which is exactly what we want (no manual typing, so no format errors).
+});
+
+// This app's own text fields go through the custom on-screen keyboard above (oskOpen/oskDone
+// already reserve space for it via body.osk-open + --osk-h). This is the defensive fallback for
+// any *native* keyboard — e.g. a browser that shows one despite readOnly, or a future input added
+// without going through oskOpen. `visualViewport` is the correct, vanilla-JS way to detect a real
+// on-screen keyboard opening (unlike `resize`, it fires specifically when the visible viewport
+// shrinks, keyboard included) — this is the equivalent of what a library like `react-native`'s
+// KeyboardAvoidingView or Ionic's `Keyboard` plugin does under the hood on native apps.
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',()=>{
+    const shrink=window.innerHeight-window.visualViewport.height;
+    const oskShowing=document.getElementById('osk').classList.contains('osk-show');
+    if(shrink>80){ // a real keyboard, not just an address-bar/chrome resize
+      document.body.style.setProperty('--osk-h',shrink+'px');
+      document.body.classList.add('osk-open');
+    } else if(!oskShowing){
+      document.body.classList.remove('osk-open');
+    }
+  });
+}
+
+// Tap anywhere outside the keyboard and outside any OSK-bound field to dismiss it — e.g. tapping
+// a service card or "Skip — Decide Later" while the keyboard happens to still be open. This can
+// never *open* the keyboard on those elements (only the explicit oskOpen() click handlers above
+// do that), so tapping Skip/a service card is safe by construction — this listener only ever closes.
+function _oskDismissIfOutside(e){
+  if(!document.getElementById('osk').classList.contains('osk-show'))return;
+  const t=e.target;
+  if(t.closest('#osk'))return;          // tapping a key itself
+  if(t.closest('.input-field'))return;  // tapping an OSK-bound field — its own click handler manages this
+  oskDone();
+}
+document.addEventListener('touchstart',_oskDismissIfOutside,{passive:true});
+document.addEventListener('mousedown',_oskDismissIfOutside); // fallback for mouse-driven testing (e.g. desktop Chrome)
+</script>
+</body>
+</html>
